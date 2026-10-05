@@ -42,9 +42,9 @@ try {
  if(!(Test-Path signing\local-test.jks)){& "$Jdk\bin\keytool.exe" -genkeypair -keystore signing/local-test.jks -storepass:env FRAMECAMERA_STORE_PASSWORD -keypass:env FRAMECAMERA_STORE_PASSWORD -alias framecamera -keyalg RSA -keysize 2048 -validity 10000 -dname 'CN=FrameCamera Local Test,O=FrameCamera,C=CN';Check 'Signing key'}
  & "$bt\zipalign.exe" -f -P 16 4 build/unsigned.apk build/aligned.apk
  Check 'Align'
- & "$bt\apksigner.bat" sign --ks signing/local-test.jks --ks-key-alias framecamera --ks-pass env:FRAMECAMERA_STORE_PASSWORD --out dist/FrameCamera-0.8.3.apk build/aligned.apk
+ & "$bt\apksigner.bat" sign --ks signing/local-test.jks --ks-key-alias framecamera --ks-pass env:FRAMECAMERA_STORE_PASSWORD --out dist/FrameCamera-0.8.4.apk build/aligned.apk
  Check 'Sign'
- & "$bt\apksigner.bat" verify --verbose dist/FrameCamera-0.8.3.apk
+ & "$bt\apksigner.bat" verify --verbose dist/FrameCamera-0.8.4.apk
  Check 'Verify'
- Get-FileHash dist/FrameCamera-0.8.3.apk -Algorithm SHA256
+ Get-FileHash dist/FrameCamera-0.8.4.apk -Algorithm SHA256
 } finally {Pop-Location}

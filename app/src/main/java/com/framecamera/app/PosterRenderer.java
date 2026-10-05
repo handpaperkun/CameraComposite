@@ -7,7 +7,7 @@ public final class PosterRenderer {
   public boolean vertical=true,reverse=false,swapText=false,blur=false,cameraOnly=false;
   public int blurType=0; public float blurStrength=.6f,blurDirection=0;
   public boolean showSignature=true,showParameters=true,fadeScreen=false;
-  public boolean scannerDevice=false;
+  public boolean scannerDevice=false,screenlessDevice=false;
   public boolean clearBodySize=false,flipPortraitBody=false;
   public boolean tintScreen=false,reflectScreen=false,reverseReflection=false;
   public int tintPreset=0;public int screenPreset=0;public float screenPresetStrength=.65f;
@@ -16,7 +16,7 @@ public final class PosterRenderer {
   public int signatureFont=0,parameterFont=0;
   public float signatureSize=1,parameterSize=1,bodyScale=1,fadeAmount=.3f;
   public String camera="",lens="";
-  public Options copy(){Options o=new Options();o.scannerDevice=scannerDevice;o.screenPreset=screenPreset;o.screenPresetStrength=screenPresetStrength;o.cameraOnly=cameraOnly;o.vertical=vertical;o.reverse=reverse;o.swapText=swapText;o.blur=blur;o.blurType=blurType;o.blurStrength=blurStrength;o.blurDirection=blurDirection;o.camera=camera;o.lens=lens;o.showSignature=showSignature;o.showParameters=showParameters;o.fadeScreen=fadeScreen;o.signatureFont=signatureFont;o.parameterFont=parameterFont;o.signatureSize=signatureSize;o.parameterSize=parameterSize;o.bodyScale=bodyScale;o.fadeAmount=fadeAmount;o.clearBodySize=clearBodySize;o.flipPortraitBody=flipPortraitBody;o.sourcePhotoWidth=sourcePhotoWidth;o.tintScreen=tintScreen;o.reflectScreen=reflectScreen;o.reverseReflection=reverseReflection;o.tintPreset=tintPreset;o.tintStrength=tintStrength;o.reflectionStrength=reflectionStrength;return o;}
+  public Options copy(){Options o=new Options();o.scannerDevice=scannerDevice;o.screenlessDevice=screenlessDevice;o.screenPreset=screenPreset;o.screenPresetStrength=screenPresetStrength;o.cameraOnly=cameraOnly;o.vertical=vertical;o.reverse=reverse;o.swapText=swapText;o.blur=blur;o.blurType=blurType;o.blurStrength=blurStrength;o.blurDirection=blurDirection;o.camera=camera;o.lens=lens;o.showSignature=showSignature;o.showParameters=showParameters;o.fadeScreen=fadeScreen;o.signatureFont=signatureFont;o.parameterFont=parameterFont;o.signatureSize=signatureSize;o.parameterSize=parameterSize;o.bodyScale=bodyScale;o.fadeAmount=fadeAmount;o.clearBodySize=clearBodySize;o.flipPortraitBody=flipPortraitBody;o.sourcePhotoWidth=sourcePhotoWidth;o.tintScreen=tintScreen;o.reflectScreen=reflectScreen;o.reverseReflection=reverseReflection;o.tintPreset=tintPreset;o.tintStrength=tintStrength;o.reflectionStrength=reflectionStrength;return o;}
  }
  private final BackgroundEffects backgrounds=new BackgroundEffects();
  public void clearCache(){backgrounds.clear();}
@@ -24,7 +24,7 @@ public final class PosterRenderer {
  /** Match original source pixels per canvas unit; EXIF physical print PPI is irrelevant here. */
  public static float effectiveBodyScale(Bitmap photo,Bitmap body,Options o){
   if(!o.clearBodySize||body==null)return o.bodyScale;
-  float panelHeight=o.cameraOnly||!o.vertical?1000f*photo.getHeight()/photo.getWidth():740;boolean portrait=!o.scannerDevice&&photo.getHeight()>photo.getWidth();
+  float panelHeight=o.cameraOnly||!o.vertical?1000f*photo.getHeight()/photo.getWidth():740;boolean portrait=!o.scannerDevice&&!o.screenlessDevice&&photo.getHeight()>photo.getWidth();
   float bw=portrait?body.getHeight():body.getWidth(),bh=portrait?body.getWidth():body.getHeight();
   float base=Math.min(780/bw,panelHeight*.66f/bh);
   float density=1000f/(o.sourcePhotoWidth>0?o.sourcePhotoWidth:photo.getWidth());
@@ -34,8 +34,8 @@ public final class PosterRenderer {
  public RectF panelBounds(Bitmap photo,Options o){float ph=1000f*photo.getHeight()/photo.getWidth();if(o.cameraOnly)return new RectF(0,0,1000,ph);return o.vertical?new RectF(0,o.reverse?0:ph,1000,(o.reverse?0:ph)+740):new RectF(o.reverse?0:1000,0,o.reverse?1000:2000,ph);}
  /** Editing bounds in the same coordinate system as the poster. */
  public RectF focusBounds(Bitmap photo,Bitmap body,CameraCatalog.Model model,Options o,boolean screen){
-  RectF panel=panelBounds(photo,o);if(!screen||body==null||model==null||model.scanner)return panel;
-  boolean portrait=!o.scannerDevice&&photo.getHeight()>photo.getWidth();float ts=Math.min(1,panel.height()/500);
+  RectF panel=panelBounds(photo,o);if(!screen||body==null||model==null||!model.hasScreen)return panel;
+  boolean portrait=!o.scannerDevice&&!o.screenlessDevice&&photo.getHeight()>photo.getWidth();float ts=Math.min(1,panel.height()/500);
   float text=Math.max(o.showSignature?29*o.signatureSize:0,o.showParameters?24*o.parameterSize:0)*ts;
   float bodyScale=effectiveBodyScale(photo,body,o),bw=portrait?body.getHeight():body.getWidth(),bh=portrait?body.getWidth():body.getHeight();
   float maxW=Math.min(panel.width()*.9f,panel.width()*.78f*bodyScale),maxH=Math.min(panel.height()-2*(32*ts+text/2+16),panel.height()*.66f*bodyScale),k=Math.min(maxW/bw,maxH/bh);
@@ -49,7 +49,7 @@ public final class PosterRenderer {
   if(o.cameraOnly)panel=panelBounds(photo,o);
   c.drawColor(0xff273d3b);p.reset();p.setAntiAlias(true);p.setFilterBitmap(true);if(!o.cameraOnly)c.drawBitmap(photo,null,image,p);p.setColor(palette(photo));c.drawRect(panel,p);
   if(o.blur){c.save();c.clipRect(panel);if(o.blurStrength<=0)BackgroundEffects.cover(c,photo,panel,p);else{Bitmap background=backgrounds.get(photo,panel.width()/panel.height(),o.blurType,o.blurStrength,o.blurDirection);p.setFilterBitmap(o.blurType!=2);c.drawBitmap(background,null,panel,p);p.setFilterBitmap(true);}p.setColor(0x700c1d1a);c.drawRect(panel,p);c.restore();}else backgrounds.clear();
-  p.setAlpha(255);float cx=panel.centerX(),cy=panel.centerY();boolean portrait=!o.scannerDevice&&photo.getHeight()>photo.getWidth();float ts=Math.min(1,panel.height()/500);
+  p.setAlpha(255);float cx=panel.centerX(),cy=panel.centerY();boolean portrait=!o.scannerDevice&&!o.screenlessDevice&&photo.getHeight()>photo.getWidth();float ts=Math.min(1,panel.height()/500);
   float largestText=Math.max(o.showSignature?29*o.signatureSize:0,o.showParameters?24*o.parameterSize:0)*ts;
   float bodyScale=effectiveBodyScale(photo,body,o);
   float maxW=Math.min(panel.width()*.90f,panel.width()*.78f*bodyScale);
@@ -61,11 +61,11 @@ public final class PosterRenderer {
    Paint shadow=new Paint(Paint.ANTI_ALIAS_FLAG);Bitmap silhouette=body.extractAlpha();
    shadow.setColor(0x3307110f);shadow.setMaskFilter(new BlurMaskFilter(15/k,BlurMaskFilter.Blur.NORMAL));c.drawBitmap(silhouette,0,10/k,shadow);
    shadow.setColor(0x2507110f);shadow.setMaskFilter(new BlurMaskFilter(4/k,BlurMaskFilter.Blur.NORMAL));c.drawBitmap(silhouette,0,3/k,shadow);silhouette.recycle();c.drawBitmap(body,0,0,p);
-   Rect r=model.screen;RectF lcd=new RectF(r.left-model.crop.left,r.top-model.crop.top,r.right-model.crop.left,r.bottom-model.crop.top);p.setColor(Color.BLACK);c.drawRect(lcd,p);c.save();c.clipRect(lcd);c.translate(lcd.centerX(),lcd.centerY());if(portrait)c.rotate(o.flipPortraitBody?90:-90);
+   if(model.hasScreen){Rect r=model.screen;RectF lcd=new RectF(r.left-model.crop.left,r.top-model.crop.top,r.right-model.crop.left,r.bottom-model.crop.top);p.setColor(Color.BLACK);c.drawRect(lcd,p);c.save();c.clipRect(lcd);c.translate(lcd.centerX(),lcd.centerY());if(portrait)c.rotate(o.flipPortraitBody?90:-90);
    float sw=portrait?lcd.height():lcd.width(),sh=portrait?lcd.width():lcd.height(),fit=Math.min(sw/photo.getWidth(),sh/photo.getHeight());RectF dst=new RectF(-photo.getWidth()*fit/2,-photo.getHeight()*fit/2,photo.getWidth()*fit/2,photo.getHeight()*fit/2);ScreenEffects.applyTint(p,o);c.drawBitmap(photo,null,dst,p);p.setColorFilter(null);
    // A translucent white veil reduces contrast only inside the displayed photo.
    if(o.fadeScreen){p.setColor(Color.WHITE);p.setAlpha(Math.round(255*Math.max(0,Math.min(.7f,o.fadeAmount))));c.drawRect(dst,p);p.setAlpha(255);}
-   c.restore();ScreenEffects.presetGlass(c,lcd,o);ScreenEffects.reflection(c,lcd,o);c.restore();labels(c,cx,cy-dh/2-32*ts,cy+dh/2+32*ts,panel.width()*.87f,metadata,o,ts);
+   c.restore();ScreenEffects.presetGlass(c,lcd,o);ScreenEffects.reflection(c,lcd,o);}c.restore();labels(c,cx,cy-dh/2-32*ts,cy+dh/2+32*ts,panel.width()*.87f,metadata,o,ts);
   }else{p.setColor(0x55ffffff);p.setStyle(Paint.Style.STROKE);p.setStrokeWidth(2);c.drawRoundRect(new RectF(cx-210,cy-115,cx+210,cy+115),20,20,p);p.setStyle(Paint.Style.FILL);text(c,"暂无对应机模",cx,cy-8,34,panel.width()*.8f,false);text(c,"需要完整 EXIF 与已适配素材",cx,cy+38,22,panel.width()*.8f,false);labels(c,cx,cy-165,cy+178,panel.width()*.87f,metadata,o,1);}
  }
  private void labels(Canvas c,float x,float top,float bottom,float width,PhotoMetadata m,Options o,float scale){
