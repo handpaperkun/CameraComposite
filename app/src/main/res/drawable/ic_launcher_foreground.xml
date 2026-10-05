@@ -1,0 +1,8 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+    <group android:pivotX="54" android:pivotY="54" android:scaleX="0.82" android:scaleY="0.82">
+    <!-- Selected concept D: photograph above a camera rear panel. Cutouts are transparent. -->
+    <path android:fillColor="#21242A" android:fillType="evenOdd" android:pathData="M31,25H77Q80,25 80,28V48Q80,51 77,51H31Q28,51 28,48V28Q28,25 31,25Z M32,49L49,32L59,42L63.5,37.5L76,49Z"/>
+    <path android:fillColor="#21242A" android:fillType="evenOdd" android:pathData="M31,57H45L47.5,53.5H60.5L63,57H77Q80,57 80,60V80Q80,83 77,83H31Q28,83 28,80V60Q28,57 31,57Z M34,61.5H59Q61,61.5 61,63.5V77Q61,79 59,79H34Q32,79 32,77V63.5Q32,61.5 34,61.5Z"/>
+    <path android:fillColor="#F15A3B" android:pathData="M75,70.25A5.25,5.25 0,1 1,64.5,70.25A5.25,5.25 0,1 1,75,70.25Z"/>
+    </group>
+</vector>

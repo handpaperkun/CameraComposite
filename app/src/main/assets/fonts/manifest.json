@@ -1,0 +1,35 @@
+[
+  {
+    "name": "站酷小薇体",
+    "file": "ZCOOLXiaoWei-Regular.ttf",
+    "license": "ZCOOLXiaoWei-OFL.txt",
+    "source": "https://github.com/googlefonts/zcool-xiaowei",
+    "download": "https://raw.githubusercontent.com/google/fonts/main/ofl/zcoolxiaowei/ZCOOLXiaoWei-Regular.ttf",
+    "sha256": "a42b620140f493db42f741351dfbf343c0936d58588ee8004b8b2a218d997ff1",
+    "licenseName": "SIL Open Font License 1.1",
+    "acquiredOn": "2026-10-05",
+    "modified": false
+  },
+  {
+    "name": "马善政毛笔体",
+    "file": "MaShanZheng-Regular.ttf",
+    "license": "MaShanZheng-OFL.txt",
+    "source": "https://github.com/googlefonts/mashanzheng",
+    "download": "https://raw.githubusercontent.com/google/fonts/main/ofl/mashanzheng/MaShanZheng-Regular.ttf",
+    "sha256": "6d2546bb189c732a8ca29af9e22457b152387d158aa459e4ac2ce1e51788b7fb",
+    "licenseName": "SIL Open Font License 1.1",
+    "acquiredOn": "2026-10-05",
+    "modified": false
+  },
+  {
+    "name": "缝合像素字体 12px 简体中文",
+    "file": "fusion-pixel-12px-proportional-zh_hans.ttf",
+    "license": "FusionPixel-OFL.txt",
+    "source": "https://github.com/TakWolf/fusion-pixel-font",
+    "download": "https://github.com/TakWolf/fusion-pixel-font/releases/download/2026.09.25/fusion-pixel-font-12px-proportional-ttf-v2026.09.25.zip",
+    "sha256": "b2ee68647dc257fa697e4d0c78f9b59461bc504a023b9a3b5ad66f358bbb1613",
+    "licenseName": "SIL Open Font License 1.1",
+    "acquiredOn": "2026-10-05",
+    "modified": false
+  }
+]

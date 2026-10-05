@@ -1,0 +1,22 @@
+[
+  {
+    "file": "paper.png",
+    "author": "Blaq Annabiosis",
+    "sourcePage": "https://www.toptal.com/designers/subtlepatterns/paper/",
+    "sourceUrl": "https://raw.githubusercontent.com/atlemo/SubtlePatterns/gh-pages/paper.png",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "sha256": "95aa9b8e07066520734db82fff607ebfb97d63f95a34b7ee687f2c96d82f2a8b",
+    "originalUnmodified": true
+  },
+  {
+    "file": "dark_leather.png",
+    "author": "Atle Mo",
+    "sourcePage": "https://www.toptal.com/designers/subtlepatterns/black-leather/",
+    "sourceUrl": "https://raw.githubusercontent.com/atlemo/SubtlePatterns/gh-pages/dark_leather.png",
+    "license": "CC BY-SA 3.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by-sa/3.0/",
+    "sha256": "cd0ec144d1febf7ee1898f36429503edc358cdb5f229d57f3bb4928b515af596",
+    "originalUnmodified": true
+  }
+]

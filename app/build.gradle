@@ -1,0 +1,14 @@
+plugins { id 'com.android.application' }
+android {
+    namespace 'com.framecamera.app'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.framecamera.app'
+        minSdk 28
+        targetSdk 35
+        versionCode 18
+        versionName '0.8.3'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_1_8; targetCompatibility JavaVersion.VERSION_1_8 }
+}
+dependencies { implementation 'androidx.exifinterface:exifinterface:1.4.1' }

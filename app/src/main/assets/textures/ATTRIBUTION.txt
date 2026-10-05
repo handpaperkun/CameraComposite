@@ -1,0 +1,20 @@
+映相界面纹理 / Interface textures
+
+Paper — Blaq Annabiosis
+https://www.toptal.com/designers/subtlepatterns/paper/
+https://raw.githubusercontent.com/atlemo/SubtlePatterns/gh-pages/paper.png
+
+Dark Leather — Atle Mo
+https://www.toptal.com/designers/subtlepatterns/black-leather/
+https://raw.githubusercontent.com/atlemo/SubtlePatterns/gh-pages/dark_leather.png
+
+Collection: Subtle Patterns © Toptal
+License: Creative Commons Attribution-ShareAlike 3.0 Unported
+https://creativecommons.org/licenses/by-sa/3.0/
+License declaration: https://github.com/atlemo/SubtlePatterns/blob/gh-pages/README.md
+
+原始 PNG 未修改。仅在界面绘制时平铺、缩放并调节透明度；这些纹理及其显示改编遵循 CC BY-SA 3.0。作者未为本应用背书。
+Original PNG files are unchanged. Display adaptations (tiling, scale and opacity compositing) are offered under CC BY-SA 3.0. No endorsement is implied.
+Full license: textures/CC-BY-SA-3.0.txt. Source declaration: textures/SOURCE-LICENSE.txt.
+
+纹理只用于应用界面，不加入导出作品。
