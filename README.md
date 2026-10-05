@@ -7,7 +7,8 @@
 首次克隆请参阅[仓库与构建说明](docs/repository.md)。相机素材来源及未核实的分发授权状态见[第三方说明](THIRD_PARTY_NOTICES.md)；仓库公开不等于全部内容获得开源许可。安装包、签名密钥和测试照片不进入 Git 历史。
 
 ## 使用
-<img width="684" height="1331" alt="image" src="https://github.com/user-attachments/assets/1cb79420-bc86-493c-b716-f561dbcbcbff" />  
+<img width="840" height="1758" alt="image" src="https://github.com/user-attachments/assets/051deed4-70a0-4d4c-ab6f-80e62e8ebb36" />
+
 
 实在是简单到不能再简单了，导入照片，APP读取EXIF信息匹配机模
 前面忘了后面忘了
