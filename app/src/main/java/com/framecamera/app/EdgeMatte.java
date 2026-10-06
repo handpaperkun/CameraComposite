@@ -34,6 +34,47 @@ final class EdgeMatte {
   if(polygons.isEmpty())return;Canvas canvas=new Canvas(bitmap);Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);paint.setColor(Color.BLACK);paint.setXfermode(new PorterDuffXfermode(PorterDuff.Mode.DST_OUT));
   for(float[] points:polygons){Path path=new Path();path.moveTo(points[0]-left,points[1]-top);for(int i=2;i<points.length;i+=2)path.lineTo(points[i]-left,points[i+1]-top);path.close();canvas.drawPath(path,paint);}
  }
+ /** Trim a reviewed studio-floor boundary, including assets using a silhouette mask. */
+ static void trimFloor(Bitmap bitmap,float[] line,int left,int top){
+  if(line.length<4)return;
+  int w=bitmap.getWidth(),h=bitmap.getHeight();int[] pixels=new int[w*h];bitmap.getPixels(pixels,0,w,0,0,w,h);
+  for(int x=0;x<w;x++){
+   float originalX=x+left;int k=0;while(k+3<line.length&&originalX>line[k+2])k+=2;if(k+3>=line.length)k=line.length-4;
+   float t=Math.max(0,Math.min(1,(originalX-line[k])/(line[k+2]-line[k]))),limit=line[k+1]+t*(line[k+3]-line[k+1])-top;
+   for(int y=Math.max(0,(int)Math.floor(limit));y<h;y++){int at=y*w+x;float coverage=Math.max(0,Math.min(1,limit-y));pixels[at]=(pixels[at]&0x00ffffff)|(Math.round(Color.alpha(pixels[at])*coverage)<<24);}
+  }
+  bitmap.setPixels(pixels,0,w,0,0,w,h);
+ }
+ /** Remove white studio-background spill retained by a slightly oversized mask.
+  * Work only near transparency, using the nearest fully interior material as reference.
+  * Bright metal/white interiors and narrow isolated details are deliberately left alone.
+  */
+ static void removeWhiteFringe(Bitmap bitmap,int background){
+  if(background<235)return;
+  int w=bitmap.getWidth(),h=bitmap.getHeight(),n=w*h,radius=Math.max(6,Math.min(16,Math.round(Math.max(w,h)/120f)));
+  int[] pixels=new int[n];bitmap.getPixels(pixels,0,w,0,0,w,h);byte[] depth=new byte[n];
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++){int i=y*w+x;depth[i]=(byte)(Color.alpha(pixels[i])==0?0:(x==0||y==0||x==w-1||y==h-1?1:radius+1));}
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++){int i=y*w+x,d=depth[i];if(x>0)d=Math.min(d,depth[i-1]+1);if(y>0)d=Math.min(d,depth[i-w]+1);depth[i]=(byte)d;}
+  for(int y=h-1;y>=0;y--)for(int x=w-1;x>=0;x--){int i=y*w+x,d=depth[i];if(x<w-1)d=Math.min(d,depth[i+1]+1);if(y<h-1)d=Math.min(d,depth[i+w]+1);depth[i]=(byte)d;}
+  int[] result=pixels.clone();int[] dx={-1,0,1,-1,1,-1,0,1},dy={-1,-1,-1,0,0,1,1,1};
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++){
+   int i=y*w+x,color=pixels[i],d=depth[i];if(d==0||d>radius)continue;
+   int red=Color.red(color),green=Color.green(color),blue=Color.blue(color);
+   float observed=luma(color);if(observed<160||Math.max(red,Math.max(green,blue))-Math.min(red,Math.min(green,blue))>24)continue;
+   int nearest=-1,best=Integer.MAX_VALUE;
+   for(int direction=0;direction<8;direction++)for(int step=1;step<=radius*2;step++){
+    int xx=x+dx[direction]*step,yy=y+dy[direction]*step;if(xx<0||xx>=w||yy<0||yy>=h)break;
+    int at=yy*w+xx;if(depth[at]==0)break;
+    if(depth[at]>radius&&Color.alpha(pixels[at])>=250){int cost=(xx-x)*(xx-x)+(yy-y)*(yy-y);if(cost<best){nearest=at;best=cost;}break;}
+   }
+   if(nearest<0)continue;float foreground=luma(pixels[nearest]);
+   if(foreground>=180||observed<foreground+55)continue;
+   float coverage=Math.max(0,Math.min(1,(background-observed)/(background-foreground)));
+   if(coverage<.015f){result[i]=Color.TRANSPARENT;continue;}
+   result[i]=Color.argb(Math.round(Color.alpha(color)*coverage),decontaminate(red,background,coverage),decontaminate(green,background,coverage),decontaminate(blue,background,coverage));
+  }
+  bitmap.setPixels(result,0,w,0,0,w,h);
+ }
  static void soften(Bitmap bitmap,int background,boolean keyed){
   int w=bitmap.getWidth(),h=bitmap.getHeight(),count=w*h;int[] pixels=new int[count];bitmap.getPixels(pixels,0,w,0,0,w,h);
   // Capped distance transform limits processing to a narrow silhouette band.

@@ -24,3 +24,5 @@ __pycache__/
 *.pyc
 .DS_Store
 Thumbs.db
+/QX1.jpg
+/Z10.jpg

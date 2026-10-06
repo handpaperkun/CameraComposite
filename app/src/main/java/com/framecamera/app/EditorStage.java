@@ -8,8 +8,8 @@ import android.view.animation.DecelerateInterpolator;
 /** One fixed-size poster surface, translated with the drawer. No per-frame remeasure. */
 public final class EditorStage extends ViewGroup {
  public interface Listener {void changed(boolean open);}
- public interface PreviewGeometry {android.graphics.RectF protectedBounds(int width,int height);}
- private float previewShift;
+ public interface PreviewGeometry {android.graphics.RectF protectedBounds(int width,int height);default boolean allowEditorScale(){return false;}}
+ private float previewShift,openScale=1;
  private boolean vertical=true,dockVertical=true,leading=false,open=false,dragging=false,enabled=true,hideActions=false;
  private float progress=0,startProgress,downX,downY;
  private int distance,actionsHeight;
@@ -55,8 +55,14 @@ public final class EditorStage extends ViewGroup {
   getChildAt(0).measure(MeasureSpec.makeMeasureSpec(w,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(previewHeight,MeasureSpec.EXACTLY));
   android.graphics.RectF protectedArea=getChildAt(0) instanceof PreviewGeometry?((PreviewGeometry)getChildAt(0)).protectedBounds(w,previewHeight):new android.graphics.RectF(0,0,w,previewHeight*.5f);
   float margin=8*density;
-  // Grow into free space without scaling the poster or clipping the device panel.
+  // Grow into free space; portrait camera-only mode can additionally scale its whole panel.
   distance=Math.round(Math.max(0,Math.min(h*.65f,h-protectedArea.height()-2*margin)));
+  openScale=1;
+  if(getChildAt(0) instanceof PreviewGeometry&&((PreviewGeometry)getChildAt(0)).allowEditorScale()){
+   distance=Math.max(distance,Math.round(h*.46f));
+   openScale=Math.min(1,Math.max(1,h-distance-2*margin)/Math.max(1,protectedArea.height()));
+   protectedArea.top*=openScale;protectedArea.bottom*=openScale;
+  }
   previewShift=Math.min(0,h-distance-margin-protectedArea.bottom);
   previewShift=Math.max(previewShift,Math.min(0,margin-protectedArea.top));
   getChildAt(1).measure(MeasureSpec.makeMeasureSpec(dockVertical?w:distance,MeasureSpec.EXACTLY),MeasureSpec.makeMeasureSpec(dockVertical?distance:h,MeasureSpec.EXACTLY));
@@ -67,6 +73,7 @@ public final class EditorStage extends ViewGroup {
  }
  private void applyPositions(){
   if(getChildCount()<3)return;int w=getWidth(),h=getHeight();View preview=getChildAt(0),menu=getChildAt(1),actions=getChildAt(2);
+  preview.setPivotX(w/2f);preview.setPivotY(0);float scale=1+(openScale-1)*progress;preview.setScaleX(scale);preview.setScaleY(scale);
   float shift=-previewShift*progress;
   preview.setTranslationX(dockVertical?0:(leading?shift:-shift));preview.setTranslationY(dockVertical?(leading?shift:-shift):0);
   menu.setTranslationX(dockVertical?0:(leading?-distance+distance*progress:w-distance*progress));
@@ -79,4 +86,3 @@ public final class EditorStage extends ViewGroup {
  @Override protected int getChildDrawingOrder(int count,int index){return count==3?(index==1?2:index==2?1:0):index;}
  @Override protected void onDetachedFromWindow(){if(animator!=null)animator.cancel();super.onDetachedFromWindow();}
 }
-

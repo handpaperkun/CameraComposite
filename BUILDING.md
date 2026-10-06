@@ -1,6 +1,6 @@
 # Android 构建
 
-仓库仅包含安卓工程及运行时素材。素材与 v0.8.3 APK 一致，直接打包，无需 Python、采集下载、抠图或测试脚本。
+仓库仅包含安卓工程及运行时素材。素材与当前版本 APK 一致，直接打包，无需 Python、采集下载、抠图或测试脚本。
 
 需要 JDK 17、Android SDK Platform 35、Build Tools 35.0.0。Gradle 配置使用 Android Gradle Plugin 8.10.0，仓库未附带 Gradle Wrapper。
 

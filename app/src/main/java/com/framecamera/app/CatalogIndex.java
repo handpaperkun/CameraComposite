@@ -5,7 +5,7 @@ import java.util.*;
 public final class CatalogIndex {
  public final LinkedHashMap<String,TreeMap<String,List<CameraCatalog.Model>>> brands=new LinkedHashMap<>();
  public CatalogIndex(List<CameraCatalog.Model> models){
-  String[][] names={{"SONY","索尼"},{"NIKON","尼康"},{"CANON","佳能"},{"FUJIFILM","富士"},{"HASSELBLAD","哈苏"},{"PANASONIC","松下"},{"OLYMPUS","奥林巴斯"},{"RICOH","理光"},{"PENTAX","宾得"},{"SIGMA","适马"},{"LEICA","徕卡"},{"NORITSU","诺日士"},{"EPSON","爱普生"}};
+  String[][] names={{"DJI","大疆"},{"SONY","索尼"},{"NIKON","尼康"},{"CANON","佳能"},{"FUJIFILM","富士"},{"HASSELBLAD","哈苏"},{"PANASONIC","松下"},{"OLYMPUS","奥林巴斯"},{"RICOH","理光"},{"PENTAX","宾得"},{"SIGMA","适马"},{"LEICA","徕卡"},{"NORITSU","诺日士"},{"EPSON","爱普生"}};
   for(String[] name:names){TreeMap<String,List<CameraCatalog.Model>> groups=new TreeMap<>();for(CameraCatalog.Model m:models)if(m.make.equalsIgnoreCase(name[0]))groups.computeIfAbsent(series(m),k->new ArrayList<>()).add(m);for(List<CameraCatalog.Model> list:groups.values())list.sort(Comparator.comparing(m->m.name));if(!groups.isEmpty())brands.put(name[1]+" · "+name[0],groups);}
  }
  public List<CameraCatalog.Model> search(String query){

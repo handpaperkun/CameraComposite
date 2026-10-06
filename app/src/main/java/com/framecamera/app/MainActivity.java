@@ -15,7 +15,7 @@ import java.util.*;
 import java.util.concurrent.*;
 
 public class MainActivity extends Activity {
- private static final int PICK=10,SAVE=11;
+ private static final int PICK=10,SAVE=11,EXPORT_FOLDER=12,ALBUM_PERMISSION=13;
  private int BG=0xfff5f3ee,INK=0xff263e35,MUTED=0xff667366,GREEN=0xff346a5a,SURFACE=0xeeffffff,SECONDARY=0xffe7eae3;
  private boolean dark,focusCamera,keyboardVisible;
  private boolean scannerMode(){return model!=null&&model.scanner;}
@@ -36,7 +36,8 @@ public class MainActivity extends Activity {
  private final ExecutorService worker=Executors.newSingleThreadExecutor();
  private final Handler main=new Handler(Looper.getMainLooper());
  private CameraCatalog catalog;
- private CameraCatalog.Model model;
+ private CameraCatalog.Model model,artworkModel;
+ private Button appearanceButton;
  private PhotoMetadata metadata;
  private Bitmap photo,body;
  private Uri selected;
@@ -51,6 +52,8 @@ public class MainActivity extends Activity {
  private EditText cameraName,lensName;
  private Button importButton,exportButton,verticalButton,horizontalButton,importSourceButton;
  private int importSource=PhotoImport.FILES;
+ private int exportLocation=PhotoExport.ALBUM,exportFormat=0;
+ private String pendingName;
  private AlertDialog importSourceDialog;
  private Switch portraitFlipSwitch,reverseSwitch,textSwitch,blurSwitch,signatureSwitch,parametersSwitch,fadeSwitch,clearSizeSwitch;
  private Spinner signatureFont,parameterFont;
@@ -73,6 +76,8 @@ public class MainActivity extends Activity {
   if(state!=null)options.cameraOnly=state.getBoolean("cameraOnly");
   importSource=getSharedPreferences(PhotoImport.PREFS,MODE_PRIVATE).getInt(PhotoImport.KEY,PhotoImport.FILES);
   if(importSource!=PhotoImport.ALBUM)importSource=PhotoImport.FILES;
+  exportLocation=PhotoExport.location(getSharedPreferences(PhotoImport.PREFS,MODE_PRIVATE).getInt(PhotoExport.LOCATION,PhotoExport.ALBUM));
+  exportFormat=PhotoExport.format(getSharedPreferences(PhotoImport.PREFS,MODE_PRIVATE).getInt(PhotoExport.FORMAT,0));
   buildUi();
   String old=state==null?null:state.getString("uri");if(old!=null)load(Uri.parse(old),true);
  }
@@ -97,7 +102,7 @@ public class MainActivity extends Activity {
   setContentView(root);
   LinearLayout header=new LinearLayout(this);header.setGravity(Gravity.CENTER_VERTICAL);
   TextView title=label(getString(R.string.app_name),24,INK);title.setTypeface(null,Typeface.BOLD);title.setSingleLine(true);title.setAutoSizeTextTypeUniformWithConfiguration(18,24,1,android.util.TypedValue.COMPLEX_UNIT_SP);header.addView(title,new LinearLayout.LayoutParams(0,dp(42),1));title.setGravity(Gravity.CENTER_VERTICAL);
-  importSourceButton=button("",false);importSourceButton.setTextSize(12);importSourceButton.setSingleLine(true);importSourceButton.setPadding(dp(8),0,dp(8),0);importSourceButton.setOnClickListener(v->showImportSource());updateImportSource();LinearLayout.LayoutParams sourceLp=new LinearLayout.LayoutParams(dp(76),dp(42));sourceLp.setMarginEnd(dp(8));header.addView(importSourceButton,sourceLp);
+  importSourceButton=button("",false);importSourceButton.setTextSize(12);importSourceButton.setSingleLine(true);importSourceButton.setPadding(dp(8),0,dp(8),0);importSourceButton.setOnClickListener(v->showImportSource());updateImportSource();LinearLayout.LayoutParams sourceLp=new LinearLayout.LayoutParams(dp(88),dp(42));sourceLp.setMarginEnd(dp(8));header.addView(importSourceButton,sourceLp);
   Button library=button("机模库 ↗",false);library.setTextSize(12);library.setSingleLine(true);library.setPadding(dp(8),0,dp(8),0);library.setOnClickListener(v->showCatalog());header.addView(library,new LinearLayout.LayoutParams(dp(82),dp(42)));
   root.addView(header);gap(root,8);
   LinearLayout modes=new LinearLayout(this);collageButton=button("照片拼接",false);cameraOnlyButton=button("仅相机",false);LinearLayout.LayoutParams modeLp=new LinearLayout.LayoutParams(0,dp(42),1);modeLp.setMarginEnd(dp(8));modes.addView(collageButton,modeLp);modes.addView(cameraOnlyButton,new LinearLayout.LayoutParams(0,dp(42),1));root.addView(modes);
@@ -161,19 +166,41 @@ public class MainActivity extends Activity {
   LinearLayout exifCard=card();parametersSwitch=toggle(exifCard,"显示拍摄参数",checked->{options.showParameters=checked;refresh();});gap(exifCard,8);details=label("焦距 —     快门 —     光圈 —     ISO —",13,INK);details.setTextIsSelectable(true);exifCard.addView(details);gap(exifCard,8);exifCard.addView(label("仅控制作品中的显示；原始数值不可修改",11,MUTED));
   parameterFont=fontPicker(exifCard,value->syncFont(value));
   parameterSize=new Slider(exifCard,"统一字号",50,150,value->{syncTextSize(value);});controls.addView(exifCard);gap(controls,14);
-  sections=new LinearLayout[]{layoutCard,screenCard,textCard,exifCard};
+  LinearLayout appearanceCard=card();appearanceCard.addView(label("机模外观",15,INK));gap(appearanceCard,10);
+  appearanceButton=button("选择配色与视角",false);appearanceButton.setOnClickListener(v->showAppearances());appearanceCard.addView(appearanceButton,new LinearLayout.LayoutParams(-1,dp(48)));
+  appearanceCard.addView(label("外观仅属于当前 EXIF 机型；正面翻转屏适用于横向照片。",11,MUTED));controls.addView(appearanceCard);
+  sections=new LinearLayout[]{layoutCard,screenCard,textCard,exifCard,appearanceCard};
   sectionPicker.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener(){public void onNothingSelected(AdapterView<?> a){}public void onItemSelected(AdapterView<?> a,View v,int position,long id){activeSection=position;detailButton.setVisibility(position==1&&!noScreenMode()?View.VISIBLE:View.GONE);for(int i=0;i<sections.length;i++)sections[i].setVisibility(i==position?View.VISIBLE:View.GONE);settingsScroll.scrollTo(0,0);}});
   activeSection=restore==null?1:restore.getInt("activeSection",1);sectionPicker.setSelection(activeSection);for(int i=0;i<sections.length;i++)sections[i].setVisibility(i==activeSection?View.VISIBLE:View.GONE);
   // Spacers between hidden cards would otherwise consume the short drawer viewport.
   for(int i=0;i<controls.getChildCount();i++)if(!(controls.getChildAt(i) instanceof LinearLayout))controls.getChildAt(i).setVisibility(View.GONE);
   refresh();
  }
+ private List<CameraCatalog.Model> availableAppearances(){return model==null||photo==null?Collections.emptyList():model.appearances(photo.getHeight()>photo.getWidth());}
+ private void updateAppearanceSection(){
+  boolean available=availableAppearances().size()>1;int count=available?5:4;
+  if(activeSection>=count)activeSection=0;
+  if(sectionPicker.getCount()!=count)sectionPicker.setAdapter(textAdapter(available?new String[]{"布局与大小","屏幕质感","相机署名","拍摄参数","机模外观"}:new String[]{"布局与大小","屏幕质感","相机署名","拍摄参数"}));
+  sectionPicker.setSelection(activeSection);for(int i=0;i<sections.length;i++)sections[i].setVisibility(i==activeSection?View.VISIBLE:View.GONE);
+  if(artworkModel!=null)appearanceButton.setText(artworkModel.appearanceLabel());
+ }
+ private void showAppearances(){
+  if(busy)return;List<CameraCatalog.Model> choices=availableAppearances();if(choices.size()<2)return;
+  String[] names=new String[choices.size()];int selectedIndex=0;for(int i=0;i<names.length;i++){names[i]=choices.get(i).appearanceLabel();if(choices.get(i)==artworkModel)selectedIndex=i;}
+  new AlertDialog.Builder(this).setTitle("机模外观 · "+model.name).setSingleChoiceItems(names,selectedIndex,(dialog,which)->{dialog.dismiss();changeAppearance(choices.get(which));}).setNegativeButton("取消",null).show();
+ }
+ private void changeAppearance(CameraCatalog.Model chosen){
+  if(busy||chosen==artworkModel||!availableAppearances().contains(chosen))return;
+  busy=true;refresh();worker.execute(()->{try{Bitmap next=catalog.load(this,chosen);main.post(()->{
+   if(isDestroyed()){next.recycle();return;}Bitmap previous=body;body=next;artworkModel=chosen;busy=false;refresh();if(previous!=null)previous.recycle();
+  });}catch(Exception|OutOfMemoryError e){main.post(()->{if(isDestroyed())return;busy=false;refresh();error("外观加载失败","已保留当前外观，请重试。");});}});
+ }
  private void updateChrome(){if(importButton==null)return;stage.setActionsHidden(keyboardVisible);exportInfo.setVisibility(keyboardVisible?View.GONE:View.VISIBLE);drawerHandle.setVisibility(keyboardVisible?View.GONE:View.VISIBLE);}
  private String swipeHint(){if(photo==null)return "导入照片后上滑调整 · 双击放大";if(focusCamera)return "↓ 下滑收起 · 双击放大 · 点击此处收起";return "↑ 上滑调整 · 双击放大 · 点击此处调整";}
  private void syncFont(int value){if(value==options.signatureFont&&value==options.parameterFont)return;options.signatureFont=options.parameterFont=value;updating=true;if(signatureFont!=null)signatureFont.setSelection(value);if(parameterFont!=null)parameterFont.setSelection(value);updating=false;preview.changed();}
  private void syncTextSize(int value){options.signatureSize=options.parameterSize=value/100f;if(signatureSize!=null)signatureSize.set(options.signatureSize);if(parameterSize!=null)parameterSize.set(options.parameterSize);preview.changed();}
  private void showZoom(){showZoom(false);}
- private void showZoom(boolean screen){if(photo==null||busy||(zoomDialog!=null&&zoomDialog.isShowing()))return;try{PosterRenderer renderer=new PosterRenderer();Bitmap image=renderer.render(photo,body,model,metadata,options,3000);float[] size=renderer.size(photo,options);RectF region=screen?renderer.focusBounds(photo,body,model,options,true):preview.region();float scale=image.getWidth()/size[0];region.set(region.left*scale,region.top*scale,region.right*scale,region.bottom*scale);zoomDialog=new ZoomPreview(this,image,region);zoomDialog.show();}catch(OutOfMemoryError e){error("暂时无法放大","请关闭其他应用后重试。");}}
+ private void showZoom(boolean screen){if(photo==null||busy||(zoomDialog!=null&&zoomDialog.isShowing()))return;try{PosterRenderer renderer=new PosterRenderer();Bitmap image=renderer.render(photo,body,artworkModel,metadata,options,3000);float[] size=renderer.size(photo,options);RectF region=screen?renderer.focusBounds(photo,body,artworkModel,options,true):preview.region();float scale=image.getWidth()/size[0];region.set(region.left*scale,region.top*scale,region.right*scale,region.bottom*scale);zoomDialog=new ZoomPreview(this,image,region);zoomDialog.show();}catch(OutOfMemoryError e){error("暂时无法放大","请关闭其他应用后重试。");}}
  private ArrayAdapter<String> textAdapter(String[] names){return textAdapter(names,false);}
  private ArrayAdapter<String> textAdapter(String[] names,boolean multiline){return new ArrayAdapter<String>(this,android.R.layout.simple_spinner_dropdown_item,names){
   private View styled(View v){TextView t=(TextView)v;t.setTextColor(INK);t.setTextSize(13);if(multiline){t.setSingleLine(false);t.setMaxLines(6);t.setEllipsize(null);t.setLayoutParams(new AbsListView.LayoutParams(-1,-2));}t.setBackgroundColor(dark?0xff2b332e:0xfffcfbf7);t.setPadding(dp(10),dp(10),dp(10),dp(10));return t;}
@@ -219,7 +246,7 @@ public class MainActivity extends Activity {
   cameraOnlyButton.setBackground(shape(options.cameraOnly?GREEN:SECONDARY,14));cameraOnlyButton.setTextColor(options.cameraOnly?Color.WHITE:INK);
   collageButton.setEnabled(!busy);cameraOnlyButton.setEnabled(!busy);
   verticalButton.setEnabled(loaded&&!busy&&!options.cameraOnly);horizontalButton.setEnabled(loaded&&!busy&&!options.cameraOnly);reverseSwitch.setEnabled(loaded&&!busy&&!options.cameraOnly);
-  stage.configure(options.vertical,options.reverse,loaded&&!busy);exportInfo.setEnabled(loaded&&!busy);exportInfo.setText(swipeHint());updateChrome();
+  stage.configure(options.vertical,options.reverse,loaded);exportInfo.setEnabled(loaded&&!busy);exportInfo.setText(swipeHint());updateChrome();
   scannerScreenNote.setText(scannerMode()?"扫描照片完整显示在设备旁，无需屏幕效果。":"此机型无照片显示屏，展示设备正面外观，无需屏幕效果。");
   scannerScreenNote.setVisibility(noScreenMode()?View.VISIBLE:View.GONE);
   if(sections!=null){for(int i=1;i<sections[1].getChildCount();i++)sections[1].getChildAt(i).setVisibility(noScreenMode()?View.GONE:View.VISIBLE);if(noScreenMode())setEnabledDeep(sections[1],false);}
@@ -229,15 +256,24 @@ public class MainActivity extends Activity {
   signatureSwitch.setText(scannerMode()?"显示扫描仪署名":"显示相机署名");
   cameraName.setHint(scannerMode()?"扫描仪名称":"相机名称");lensName.setVisibility(scannerMode()?View.GONE:View.VISIBLE);
   cameraOnlyButton.setText(scannerMode()?"仅扫描仪":"仅相机");
-  updating=false;preview.requestLayout();preview.changed();
+  updateAppearanceSection();updating=false;preview.requestLayout();preview.changed();
  }
  private void setEnabledDeep(View v,boolean enabled){v.setEnabled(enabled);if(v instanceof android.view.ViewGroup)for(int i=0;i<((android.view.ViewGroup)v).getChildCount();i++)setEnabledDeep(((android.view.ViewGroup)v).getChildAt(i),enabled);}
- private void updateImportSource(){importSourceButton.setText(importSource==PhotoImport.ALBUM?"相册 ▾":"文件 ▾");importSourceButton.setContentDescription("导入方式："+(importSource==PhotoImport.ALBUM?"相册":"文件管理")+"，点击切换");}
+ private void updateImportSource(){importSourceButton.setText("导入/导出 ▾");importSourceButton.setContentDescription("导入与导出设置，导入："+(importSource==PhotoImport.ALBUM?"相册":"文件管理")+"，导出："+(exportLocation==PhotoExport.ALBUM?"相册 · 器材片":exportLocation==PhotoExport.SAME_FOLDER?"原照片同目录":"每次选择位置"));}
+ private Spinner settingsPicker(LinearLayout panel,String title,String[] choices,int selected){
+  panel.addView(label(title,14,INK));Spinner picker=new Spinner(this);ArrayAdapter<String> adapter=new ArrayAdapter<>(this,android.R.layout.simple_spinner_dropdown_item,choices);picker.setAdapter(adapter);picker.setSelection(selected);panel.addView(picker,new LinearLayout.LayoutParams(-1,dp(52)));gap(panel,8);return picker;
+ }
  private void showImportSource(){
-  importSourceDialog=new AlertDialog.Builder(this).setTitle("导入方式")
-   .setSingleChoiceItems(new String[]{"文件管理","相册"},importSource,(dialog,which)->{
-    boolean saved=getSharedPreferences(PhotoImport.PREFS,MODE_PRIVATE).edit().putInt(PhotoImport.KEY,which).commit();importSource=which;updateImportSource();dialog.dismiss();if(!saved)Toast.makeText(this,"导入方式暂未保存，请检查设备存储空间",Toast.LENGTH_LONG).show();
-   }).setNegativeButton("取消",null).create();importSourceDialog.show();
+  LinearLayout panel=column();panel.setPadding(dp(22),dp(12),dp(22),dp(8));
+  Spinner source=settingsPicker(panel,"导入方式",new String[]{"文件管理","相册"},importSource);
+  Spinner location=settingsPicker(panel,"导出位置",PhotoExport.LOCATIONS,PhotoExport.locationIndex(exportLocation));
+  Spinner format=settingsPicker(panel,"导出画质",PhotoExport.FORMATS,exportFormat);
+  panel.addView(label("默认直接保存至相册的「器材片」相簿，无需选择位置。选择原照片文件夹时，首次可能需要授权。",12,MUTED));
+  ScrollView scroll=new ScrollView(this);scroll.addView(panel);
+  importSourceDialog=new AlertDialog.Builder(this).setTitle("导入与导出").setView(scroll).setPositiveButton("保存",(dialog,which)->{
+   importSource=source.getSelectedItemPosition();exportLocation=PhotoExport.locationAt(location.getSelectedItemPosition());exportFormat=format.getSelectedItemPosition();
+   boolean saved=getSharedPreferences(PhotoImport.PREFS,MODE_PRIVATE).edit().putInt(PhotoImport.KEY,importSource).putInt(PhotoExport.LOCATION,exportLocation).putInt(PhotoExport.FORMAT,exportFormat).commit();updateImportSource();if(!saved)Toast.makeText(this,"设置暂未保存，请检查设备存储空间",Toast.LENGTH_LONG).show();
+  }).setNegativeButton("取消",null).create();importSourceDialog.show();
  }
  private void pick(){
   try{startActivityForResult(PhotoImport.intent(importSource,Build.VERSION.SDK_INT),PICK);}
@@ -246,7 +282,19 @@ public class MainActivity extends Activity {
    error("无法打开导入入口","此设备没有可用的"+(importSource==PhotoImport.ALBUM?"相册":"文件管理")+"应用，请切换另一种导入方式。");
   }
  }
- @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null||data.getData()==null){if(request==SAVE){busy=false;pendingOptions=null;refresh();}return;}Uri uri=data.getData();if(request==PICK){try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}load(uri,false);}else if(request==SAVE)export(uri);}
+ @Override protected void onActivityResult(int request,int result,Intent data){
+  super.onActivityResult(request,result,data);
+  if(result!=RESULT_OK||data==null||data.getData()==null){if(request==SAVE||request==EXPORT_FOLDER)cancelExport();return;}
+  Uri uri=data.getData();
+  if(request==PICK){try{getContentResolver().takePersistableUriPermission(uri,Intent.FLAG_GRANT_READ_URI_PERMISSION);}catch(SecurityException ignored){}load(uri,false);}
+  else if(request==SAVE)export(new PhotoExport.Target(uri,false,false));
+  else if(request==EXPORT_FOLDER){
+   if(pendingOptions==null||selected==null){cancelExport();return;}
+   int flags=data.getFlags()&(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+   try{getContentResolver().takePersistableUriPermission(uri,flags);}catch(SecurityException ignored){}
+   resolveExport(uri);
+  }
+ }
  private Bitmap decode(Uri uri,int edge)throws IOException{return decode(uri,edge,null);}
  private Bitmap decode(Uri uri,int edge,int[] originalSize)throws IOException{
   ImageDecoder.Source source=ImageDecoder.createSource(getContentResolver(),uri);
@@ -256,25 +304,62 @@ public class MainActivity extends Activity {
   busy=true;status.setText("正在读取照片与 EXIF…");refresh();
   worker.execute(()->{Bitmap newPhoto=null,newBody=null;try{
    PhotoMetadata meta;try(InputStream in=getContentResolver().openInputStream(uri)){if(in==null)throw new IOException("无法打开照片");meta=PhotoMetadata.read(in);}
-   final int[] originalSize=new int[2];newPhoto=decode(uri,1800,originalSize);CameraCatalog.Model matched=catalog.match(meta);if(matched!=null)newBody=catalog.load(this,matched);
-   final Bitmap np=newPhoto,nb=newBody;main.post(()->{if(isDestroyed()){np.recycle();if(nb!=null)nb.recycle();return;}if(photo!=null)photo.recycle();if(body!=null)body.recycle();photo=np;body=nb;model=matched;metadata=meta;selected=uri;
-    boolean mode=options.cameraOnly;options=new PosterRenderer.Options();options.cameraOnly=mode;options.vertical=photo.getWidth()>=photo.getHeight();options.camera=meta.cameraName();options.lens=meta.lens;options.sourcePhotoWidth=originalSize[0];options.scannerDevice=matched!=null&&matched.scanner;options.screenlessDevice=matched!=null&&!matched.scanner&&!matched.hasScreen;if(options.scannerDevice){options.cameraOnly=false;options.camera=matched.genericArtwork?(meta.model.isEmpty()?meta.make+" · "+meta.software:meta.cameraName()):matched.name;options.lens="";options.showParameters=false;}
+   final int[] originalSize=new int[2];newPhoto=decode(uri,1800,originalSize);CameraCatalog.Model matched=catalog.match(meta);CameraCatalog.Model artwork=matched==null?null:matched.appearance(newPhoto.getHeight()>newPhoto.getWidth(),restoring&&restore!=null?restore.getString("appearanceId",""):"");if(artwork!=null)newBody=catalog.load(this,artwork);
+   final Bitmap np=newPhoto,nb=newBody;main.post(()->{if(isDestroyed()){np.recycle();if(nb!=null)nb.recycle();return;}if(photo!=null)photo.recycle();if(body!=null)body.recycle();photo=np;body=nb;model=matched;artworkModel=artwork;metadata=meta;selected=uri;
+    boolean mode=options.cameraOnly;options=new PosterRenderer.Options();options.cameraOnly=mode;options.vertical=photo.getWidth()>=photo.getHeight();options.camera=matched!=null&&matched.make.equals("DJI")?matched.name:meta.cameraName();options.lens=meta.lens;options.sourcePhotoWidth=originalSize[0];options.uprightDevice=matched!=null&&matched.uprightDevice;options.scannerDevice=matched!=null&&matched.scanner;options.screenlessDevice=matched!=null&&!matched.scanner&&!matched.hasScreen;if(options.scannerDevice){options.cameraOnly=false;options.camera=matched.genericArtwork?(meta.model.isEmpty()?meta.make+" · "+meta.software:meta.cameraName()):matched.name;options.lens="";options.showParameters=false;}
     if(restoring&&restore!=null){options.cameraOnly=restore.getBoolean("cameraOnly");options.vertical=restore.getBoolean("vertical",options.vertical);options.reverse=restore.getBoolean("reverse");options.swapText=restore.getBoolean("swapText");options.flipPortraitBody=restore.getBoolean("flipPortraitBody");options.blur=restore.getBoolean("blur");options.blurType=restore.getInt("blurType",0);options.blurStrength=restore.getFloat("blurStrength",.6f);options.blurDirection=restore.getFloat("blurDirection",0);options.camera=restore.getString("camera",options.camera);options.lens=restore.getString("lens",options.lens);
-     options.showSignature=restore.getBoolean("showSignature",true);options.showParameters=restore.getBoolean("showParameters",true);options.fadeScreen=restore.getBoolean("fadeScreen");options.signatureFont=restore.getInt("signatureFont",0);options.parameterFont=options.signatureFont;options.signatureSize=restore.getFloat("signatureSize",1);options.parameterSize=options.signatureSize;options.bodyScale=restore.getFloat("bodyScale",1);options.fadeAmount=restore.getFloat("fadeAmount",.3f);options.clearBodySize=restore.getBoolean("clearBodySize");options.tintScreen=restore.getBoolean("tintScreen");options.reflectScreen=restore.getBoolean("reflectScreen");options.reverseReflection=restore.getBoolean("reverseReflection");options.screenPreset=restore.getInt("screenPreset",0);options.screenPresetStrength=restore.getFloat("screenPresetStrength",.65f);options.tintPreset=restore.getInt("tintPreset",0);options.tintStrength=restore.getFloat("tintStrength",.45f);options.reflectionStrength=restore.getFloat("reflectionStrength",.35f);boolean reopen=restore.getBoolean("editorOpen");restore=null;stage.post(()->stage.setOpen(reopen,false));}
+     options.showSignature=restore.getBoolean("showSignature",true);options.showParameters=restore.getBoolean("showParameters",true);options.fadeScreen=restore.getBoolean("fadeScreen");options.signatureFont=restore.getInt("signatureFont",0);options.parameterFont=options.signatureFont;options.signatureSize=restore.getFloat("signatureSize",1);options.parameterSize=options.signatureSize;options.bodyScale=restore.getFloat("bodyScale",1);options.fadeAmount=restore.getFloat("fadeAmount",.3f);options.clearBodySize=restore.getBoolean("clearBodySize");options.tintScreen=restore.getBoolean("tintScreen");options.reflectScreen=restore.getBoolean("reflectScreen");options.reverseReflection=restore.getBoolean("reverseReflection");options.screenPreset=restore.getInt("screenPreset",0);options.screenPresetStrength=restore.getFloat("screenPresetStrength",.65f);options.tintPreset=restore.getInt("tintPreset",0);options.tintStrength=restore.getFloat("tintStrength",.45f);options.reflectionStrength=restore.getFloat("reflectionStrength",.35f);activeSection=restore.getInt("activeSection",1);boolean reopen=restore.getBoolean("editorOpen");restore=null;stage.post(()->stage.setOpen(reopen,false));}
     updating=true;cameraName.setText(options.camera);lensName.setText(options.lens);updating=false;details.setText(scannerMode()?meta.scanDescription():meta.focal+"     "+meta.shutter+"\n"+meta.aperture+"     "+meta.iso);if(scannerMode())options.showParameters=false;
     status.setText(matched!=null?(matched.genericArtwork?"已识别扫描流程 · 硬件型号未记录（通用示意）":"已自动匹配  ·  "+matched.name):meta.unmatchedReason());status.setTextColor(matched==null?(dark?0xffefbb8a:0xffa56839):(dark?0xff9ec9b1:GREEN));importButton.setText("＋  更换照片");busy=false;refresh();
    });
   }catch(Exception|OutOfMemoryError e){if(newPhoto!=null)newPhoto.recycle();if(newBody!=null)newBody.recycle();main.post(()->{if(isDestroyed())return;busy=false;status.setText("导入失败，已保留原作品");refresh();error("无法导入", "请使用可正常解码的 JPG、PNG、WebP 或 HEIF 原图。RAW 请先导出为保留 EXIF 的 JPG。\n"+e.getMessage());});}});
  }
- private void chooseExport(){if(model==null||busy)return;new AlertDialog.Builder(this).setTitle("导出作品").setItems(new String[]{"JPG · 长边 4096 px · 画质 95%","PNG · 长边 4096 px · 无损","JPG · 长边 2048 px · 轻量"},(d,w)->{
-  pendingFormat=w==1?"image/png":"image/jpeg";exportEdge=w==2?2048:4096;pendingOptions=options.copy();busy=true;refresh();Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType(pendingFormat);i.putExtra(Intent.EXTRA_TITLE,getString(R.string.app_name)+"_"+new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.US).format(new Date())+(w==1?".png":".jpg"));startActivityForResult(i,SAVE);
- }).show();}
- private void export(Uri uri){
-  if(pendingOptions==null||selected==null||model==null){busy=false;refresh();error("导出已取消","作品状态发生变化，请重新导出。");return;}
-  final Uri original=selected;final CameraCatalog.Model chosen=model;final PhotoMetadata meta=metadata;final PosterRenderer.Options opts=pendingOptions;final int edge=exportEdge;final String format=pendingFormat;status.setText("正在生成高清作品…");
-  worker.execute(()->{Bitmap full=null,out=null;try{full=decode(original,edge);out=new PosterRenderer().render(full,body,chosen,meta,opts,edge);try(OutputStream stream=getContentResolver().openOutputStream(uri,"w")){if(stream==null||!out.compress(format.equals("image/png")?Bitmap.CompressFormat.PNG:Bitmap.CompressFormat.JPEG,95,stream))throw new IOException("无法写入文件");}
-    final String dimensions=out.getWidth()+" × "+out.getHeight();main.post(()->{if(isDestroyed())return;busy=false;pendingOptions=null;status.setText("已导出 · "+dimensions);refresh();Toast.makeText(this,"作品已保存",Toast.LENGTH_LONG).show();});
-   }catch(Exception|OutOfMemoryError e){main.post(()->{if(isDestroyed())return;busy=false;pendingOptions=null;status.setText("导出失败，请重试或选择 2048 px");refresh();error("无法导出",e.getMessage());});}finally{if(full!=null)full.recycle();if(out!=null)out.recycle();}
+ private void chooseExport(){
+  if(model==null||busy)return;
+  pendingFormat=PhotoExport.mime(exportFormat);exportEdge=PhotoExport.edge(exportFormat);pendingOptions=options.copy();
+  pendingName=getString(R.string.app_name)+"_"+new SimpleDateFormat("yyyyMMdd_HHmmss_SSS",Locale.US).format(new Date())+(exportFormat==1?".png":".jpg");
+  busy=true;refresh();if(exportLocation==PhotoExport.ASK)saveAs();else if(exportLocation==PhotoExport.ALBUM)saveToAlbum();else resolveExport(null);
+ }
+ private void saveToAlbum(){
+  if(Build.VERSION.SDK_INT<29&&checkSelfPermission(android.Manifest.permission.WRITE_EXTERNAL_STORAGE)!=android.content.pm.PackageManager.PERMISSION_GRANTED){requestPermissions(new String[]{android.Manifest.permission.WRITE_EXTERNAL_STORAGE},ALBUM_PERMISSION);return;}
+  final String mime=pendingFormat,name=pendingName;
+  worker.execute(()->{try{PhotoExport.Target target=PhotoExport.album(this,mime,name);main.post(()->{if(isDestroyed()){target.discard(this);return;}export(target);});}
+   catch(Exception e){main.post(()->{if(isDestroyed())return;cancelExport();error("无法保存到相册",e.getMessage());});}});
+ }
+ @Override public void onRequestPermissionsResult(int request,String[] permissions,int[] results){
+  super.onRequestPermissionsResult(request,permissions,results);
+  if(request==ALBUM_PERMISSION&&pendingOptions!=null){if(results.length>0&&results[0]==android.content.pm.PackageManager.PERMISSION_GRANTED)saveToAlbum();else{cancelExport();error("未保存作品","保存到相册需要存储权限。请允许后重试，或在导入/导出设置中选择保存位置。");}}
+ }
+ private void cancelExport(){busy=false;pendingOptions=null;pendingName=null;refresh();}
+ private void saveAs(){
+  Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(pendingFormat).putExtra(Intent.EXTRA_TITLE,pendingName);
+  try{startActivityForResult(i,SAVE);}catch(ActivityNotFoundException e){cancelExport();error("无法选择保存位置","此设备没有可用的文件管理器。");}
+ }
+ private void requestExportFolder(){
+  try{startActivityForResult(PhotoExport.folderIntent(this,selected),EXPORT_FOLDER);}catch(ActivityNotFoundException e){cancelExport();error("无法授权文件夹","请在导入与导出设置中选择每次指定保存位置。");}
+ }
+ private void resolveExport(Uri tree){
+  final Uri original=selected;final String mime=pendingFormat,name=pendingName;
+  worker.execute(()->{try{
+   PhotoExport.Target target=tree==null?PhotoExport.automatic(this,original,mime,name):PhotoExport.inTree(this,tree,original,mime,name);
+   main.post(()->{
+    if(isDestroyed()){if(target!=null)target.discard(this);return;}
+    if(target!=null){export(target);return;}
+    boolean folder=PhotoExport.canRequestFolder(this,original);
+    AlertDialog dialog=new AlertDialog.Builder(this).setTitle(folder?"授权原照片文件夹":"请选择保存位置")
+     .setMessage(folder?"请选择原照片所在的文件夹并允许访问，作品会保存到同一目录。授权后，该目录内的照片无需重复选择。":"此相册或云端照片未提供可写入的原目录，无法自动保存到同目录。请选择本次保存位置。")
+     .setPositiveButton(folder?"选择原文件夹":"选择保存位置",(d,w)->{if(folder)requestExportFolder();else saveAs();}).setNegativeButton("取消",(d,w)->cancelExport()).create();
+    dialog.setOnCancelListener(d->cancelExport());dialog.show();
+   });
+  }catch(Exception e){main.post(()->{if(isDestroyed())return;cancelExport();error("无法保存到同目录",e.getMessage());});}});
+ }
+ private void export(Uri uri){export(new PhotoExport.Target(uri,false,false));}
+ private void export(PhotoExport.Target target){
+  if(pendingOptions==null||selected==null||model==null){target.discard(this);cancelExport();error("导出已取消","作品状态发生变化，请重新导出。");return;}
+  final Uri original=selected;final CameraCatalog.Model chosen=artworkModel;final PhotoMetadata meta=metadata;final PosterRenderer.Options opts=pendingOptions;final int edge=exportEdge;final String format=pendingFormat;final Bitmap cameraBody=body;status.setText("正在生成高清作品…");
+  worker.execute(()->{Bitmap full=null,out=null;try{full=decode(original,edge);out=new PosterRenderer().render(full,cameraBody,chosen,meta,opts,edge);try(OutputStream stream=getContentResolver().openOutputStream(target.uri,"w")){if(stream==null||!out.compress(format.equals("image/png")?Bitmap.CompressFormat.PNG:Bitmap.CompressFormat.JPEG,95,stream))throw new IOException("无法写入文件");}target.complete(this);
+    final String dimensions=out.getWidth()+" × "+out.getHeight();main.post(()->{if(isDestroyed())return;cancelExport();status.setText("已导出 · "+dimensions+(target.album?" · 相册 / 器材片":target.owned?" · 原照片同目录":""));Toast.makeText(this,target.album?"作品已保存到相册「器材片」":target.owned?"作品已保存到原照片同目录":"作品已保存",Toast.LENGTH_LONG).show();});
+   }catch(Exception|OutOfMemoryError e){target.discard(this);main.post(()->{if(isDestroyed())return;cancelExport();status.setText("导出失败，请重试或在设置中选择 2048 px");error("无法导出",e.getMessage());});}finally{if(full!=null)full.recycle();if(out!=null)out.recycle();}
   });
  }
  private void error(String title,String message){new AlertDialog.Builder(this).setTitle(title).setMessage(message).setPositiveButton("知道了",null).show();}
@@ -298,13 +383,14 @@ public class MainActivity extends Activity {
   else{for(CameraCatalog.Model item:catalogIndex.brands.get(catalogBrand).get(catalogSeries)){rows.add(item.name+(item==model?"  · 当前照片":"")+"\n"+(item.available?(item.genericArtwork?"通用示意 · 未确定硬件型号":"已适配 · 根据照片 EXIF 自动匹配")+(item.qualityNote.isEmpty()?"":"\n"+item.qualityNote):item.status));}catalogDialog.setTitle(catalogBrand+" / "+catalogSeries);}
   catalogList.setAdapter(textAdapter(rows.toArray(new String[0]),true));catalogList.setOnItemClickListener((parent,view,position,id)->{if(searching)return;if(catalogBrand==null)catalogBrand=keys.get(position);else if(catalogSeries==null)catalogSeries=keys.get(position);else return;updateCatalog();});catalogDialog.getButton(-3).setVisibility(catalogBrand==null&&!searching?View.GONE:View.VISIBLE);catalogList.setSelection(0);
  }
- @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putBoolean("cameraOnly",options.cameraOnly);b.putBoolean("editorOpen",stage.isOpen());b.putInt("activeSection",activeSection);if(selected!=null)b.putString("uri",selected.toString());b.putBoolean("vertical",options.vertical);b.putBoolean("reverse",options.reverse);b.putBoolean("swapText",options.swapText);b.putBoolean("flipPortraitBody",options.flipPortraitBody);b.putBoolean("blur",options.blur);b.putInt("blurType",options.blurType);b.putFloat("blurStrength",options.blurStrength);b.putFloat("blurDirection",options.blurDirection);b.putString("camera",options.camera);b.putString("lens",options.lens);b.putBoolean("showSignature",options.showSignature);b.putBoolean("showParameters",options.showParameters);b.putBoolean("fadeScreen",options.fadeScreen);b.putInt("signatureFont",options.signatureFont);b.putInt("parameterFont",options.parameterFont);b.putFloat("signatureSize",options.signatureSize);b.putFloat("parameterSize",options.parameterSize);b.putFloat("bodyScale",options.bodyScale);b.putFloat("fadeAmount",options.fadeAmount);b.putBoolean("clearBodySize",options.clearBodySize);b.putBoolean("tintScreen",options.tintScreen);b.putBoolean("reflectScreen",options.reflectScreen);b.putBoolean("reverseReflection",options.reverseReflection);b.putInt("screenPreset",options.screenPreset);b.putFloat("screenPresetStrength",options.screenPresetStrength);b.putInt("tintPreset",options.tintPreset);b.putFloat("tintStrength",options.tintStrength);b.putFloat("reflectionStrength",options.reflectionStrength);}
+ @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);b.putString("appearanceId",artworkModel==null?"":artworkModel.appearanceId);b.putBoolean("cameraOnly",options.cameraOnly);b.putBoolean("editorOpen",stage.isOpen());b.putInt("activeSection",activeSection);if(selected!=null)b.putString("uri",selected.toString());b.putBoolean("vertical",options.vertical);b.putBoolean("reverse",options.reverse);b.putBoolean("swapText",options.swapText);b.putBoolean("flipPortraitBody",options.flipPortraitBody);b.putBoolean("blur",options.blur);b.putInt("blurType",options.blurType);b.putFloat("blurStrength",options.blurStrength);b.putFloat("blurDirection",options.blurDirection);b.putString("camera",options.camera);b.putString("lens",options.lens);b.putBoolean("showSignature",options.showSignature);b.putBoolean("showParameters",options.showParameters);b.putBoolean("fadeScreen",options.fadeScreen);b.putInt("signatureFont",options.signatureFont);b.putInt("parameterFont",options.parameterFont);b.putFloat("signatureSize",options.signatureSize);b.putFloat("parameterSize",options.parameterSize);b.putFloat("bodyScale",options.bodyScale);b.putFloat("fadeAmount",options.fadeAmount);b.putBoolean("clearBodySize",options.clearBodySize);b.putBoolean("tintScreen",options.tintScreen);b.putBoolean("reflectScreen",options.reflectScreen);b.putBoolean("reverseReflection",options.reverseReflection);b.putInt("screenPreset",options.screenPreset);b.putFloat("screenPresetStrength",options.screenPresetStrength);b.putInt("tintPreset",options.tintPreset);b.putFloat("tintStrength",options.tintStrength);b.putFloat("reflectionStrength",options.reflectionStrength);}
  @Override protected void onDestroy(){if(zoomDialog!=null)zoomDialog.dismiss();if(catalogDialog!=null)catalogDialog.dismiss();if(importSourceDialog!=null)importSourceDialog.dismiss();if(preview!=null)preview.renderer.clearCache();super.onDestroy();worker.shutdown();/* queued work may still own bitmaps; let GC reclaim after it completes */}
  private final class Preview extends View implements EditorStage.PreviewGeometry{
   final PosterRenderer renderer=new PosterRenderer();final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG|Paint.FILTER_BITMAP_FLAG);
   Bitmap rendered;
   void changed(){if(rendered!=null){rendered.recycle();rendered=null;}invalidate();}
   Preview(){super(MainActivity.this);setLayerType(View.LAYER_TYPE_HARDWARE,null);setOnClickListener(v->{if(photo==null)pick();});}
+  public boolean allowEditorScale(){return options.cameraOnly&&photo!=null&&photo.getHeight()>photo.getWidth();}
   public RectF protectedBounds(int width,int height){if(photo==null)return new RectF(0,0,width,height*.4f);float[] size=renderer.size(photo,options);float k=Math.min((width-dp(12))/size[0],(height-dp(12))/size[1]);RectF area=renderer.panelBounds(photo,options);area.set(area.left*k+(width-size[0]*k)/2,area.top*k+(height-size[1]*k)/2,area.right*k+(width-size[0]*k)/2,area.bottom*k+(height-size[1]*k)/2);return area;}
   RectF region(){float[] size=renderer.size(photo,options);return new RectF(0,0,size[0],size[1]);}
   @Override protected void onMeasure(int ws,int hs){setMeasuredDimension(MeasureSpec.getSize(ws),MeasureSpec.getSize(hs));}
@@ -312,7 +398,7 @@ public class MainActivity extends Activity {
    if(photo==null){paint.setColor(0xffd4dccf);c.drawCircle(w*.8f,h*.17f,w*.27f,paint);paint.setColor(0xffc5d2c0);c.drawCircle(w*.1f,h*.97f,w*.46f,paint);
     float cx=w/2,cy=h*.44f;paint.setColor(0xff627b69);paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(dp(2));c.drawRoundRect(cx-dp(43),cy-dp(31),cx+dp(43),cy+dp(31),dp(8),dp(8),paint);c.drawRect(cx-dp(32),cy-dp(21),cx+dp(17),cy+dp(21),paint);c.drawCircle(cx+dp(30),cy+dp(9),dp(5),paint);paint.setStyle(Paint.Style.FILL);paint.setTextAlign(Paint.Align.CENTER);paint.setTextSize(dp(16));paint.setTypeface(Typeface.create("sans-serif-medium",0));c.drawText("每一张照片，都有来处",cx,cy+dp(67),paint);paint.setTextSize(dp(11));paint.setTypeface(Typeface.DEFAULT);c.drawText("点击这里，或导入一张原图",cx,cy+dp(94),paint);return;}
    float[] size=renderer.size(photo,options);RectF region=region();
-   float k=Math.min((w-dp(12))/region.width(),(h-dp(12))/region.height());if(k<=0)return;c.save();c.translate((w-region.width()*k)/2,(h-region.height()*k)/2);c.scale(k,k);c.clipRect(0,0,region.width(),region.height());c.translate(-region.left,-region.top);if(rendered==null)rendered=renderer.render(photo,body,model,metadata,options,1600);
+   float k=Math.min((w-dp(12))/region.width(),(h-dp(12))/region.height());if(k<=0)return;c.save();c.translate((w-region.width()*k)/2,(h-region.height()*k)/2);c.scale(k,k);c.clipRect(0,0,region.width(),region.height());c.translate(-region.left,-region.top);if(rendered==null)rendered=renderer.render(photo,body,artworkModel,metadata,options,1600);
    c.drawBitmap(rendered,null,new RectF(0,0,size[0],size[1]),paint);c.restore();
   }
  }
