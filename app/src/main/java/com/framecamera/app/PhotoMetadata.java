@@ -17,7 +17,9 @@ public final class PhotoMetadata {
   this.droneModel=clean(droneModel);this.software=clean(software);this.make=clean(make);this.model=clean(model);this.lens=clean(lens);this.focal=focal;this.aperture=aperture;this.shutter=shutter;this.iso=iso;
  }
  public static PhotoMetadata read(InputStream in)throws IOException{
-  ExifInterface e=new ExifInterface(in);
+  BufferedInputStream buffered=in instanceof BufferedInputStream?(BufferedInputStream)in:new BufferedInputStream(in);
+  PhotoDecoder.requireAvifSupport(PhotoDecoder.isAvif(buffered),android.os.Build.VERSION.SDK_INT);
+  ExifInterface e=new ExifInterface(buffered);
   double f=e.getAttributeDouble(ExifInterface.TAG_FOCAL_LENGTH,Double.NaN),a=e.getAttributeDouble(ExifInterface.TAG_F_NUMBER,Double.NaN),s=e.getAttributeDouble(ExifInterface.TAG_EXPOSURE_TIME,Double.NaN);
   String iso=e.getAttribute(ExifInterface.TAG_PHOTOGRAPHIC_SENSITIVITY);
   return new PhotoMetadata(e.getAttribute(ExifInterface.TAG_MAKE),e.getAttribute(ExifInterface.TAG_MODEL),e.getAttribute(ExifInterface.TAG_LENS_MODEL),positive(f)?number(f)+" mm":"焦距 —",positive(a)?"f/"+number(a):"光圈 —",exposure(s),iso==null?"ISO —":"ISO "+iso,e.getAttribute(ExifInterface.TAG_SOFTWARE),droneFromXmp(e.getAttribute(ExifInterface.TAG_XMP)));
@@ -43,5 +45,15 @@ public final class PhotoMetadata {
  public String scanDescription(){return "扫描设备："+cameraName()+(software.isEmpty()?"":"\n扫描软件："+software)+"\n扫描文件不能确定胶片相机、镜头或胶片感光度。";}
  public String unmatchedReason(){if(normalize(model).equals("L2D20C")&&droneModel.isEmpty())return "Mavic 3 系列共用 L2D-20c，照片未保留飞行器型号，无法确定具体机身";if(scanHint())return "扫描信息："+cameraName()+" · 尚无可准确匹配的扫描仪素材";return make.isEmpty()||model.isEmpty()?"设备 EXIF 缺少品牌或型号，请导入保留信息的原始照片":"尚未适配："+cameraName()+" · 暂无法导出机模作品";}
  public static String normalize(String s){return Normalizer.normalize(clean(s),Normalizer.Form.NFKC).toUpperCase(Locale.ROOT).replaceAll("[^A-Z0-9]","");}
+ /** Manufacturer prefixes are presentation differences, not a different Leica body. */
+ static String modelKey(String make,String model){
+  String key=normalize(model);if(!brand(make).equals("LEICA"))return key;
+  for(int i=0;i<2;i++){
+   if(key.startsWith("LEICACAMERAAG"))key=key.substring(13);
+   else if(key.startsWith("LEICA"))key=key.substring(5);
+   else break;
+  }
+  return key;
+ }
  public static String brand(String s){String n=normalize(s);if(n.equals("DJITECHNOLOGYCOLTD")||n.equals("SZDJITECHNOLOGYCOLTD"))return "DJI";if(n.equals("NIKONCORPORATION"))return "NIKON";if(n.equals("RICOHIMAGINGCOMPANYLTD")||n.equals("RICOHIMAGING"))return "RICOH";if(n.equals("SIGMACORPORATION"))return "SIGMA";if(n.equals("OMDIGITALSOLUTIONS"))return "OMSYSTEM";if(n.equals("LEICACAMERAAG"))return "LEICA";return n;}
 }

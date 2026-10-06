@@ -247,7 +247,7 @@ public class MainActivity extends Activity {
   collageButton.setEnabled(!busy);cameraOnlyButton.setEnabled(!busy);
   verticalButton.setEnabled(loaded&&!busy&&!options.cameraOnly);horizontalButton.setEnabled(loaded&&!busy&&!options.cameraOnly);reverseSwitch.setEnabled(loaded&&!busy&&!options.cameraOnly);
   stage.configure(options.vertical,options.reverse,loaded);exportInfo.setEnabled(loaded&&!busy);exportInfo.setText(swipeHint());updateChrome();
-  scannerScreenNote.setText(scannerMode()?"扫描照片完整显示在设备旁，无需屏幕效果。":"此机型无照片显示屏，展示设备正面外观，无需屏幕效果。");
+  scannerScreenNote.setText(scannerMode()?"扫描照片完整显示在设备旁，无需屏幕效果。":"此机型无照片显示屏，展示设备外观，无需屏幕效果。");
   scannerScreenNote.setVisibility(noScreenMode()?View.VISIBLE:View.GONE);
   if(sections!=null){for(int i=1;i<sections[1].getChildCount();i++)sections[1].getChildAt(i).setVisibility(noScreenMode()?View.GONE:View.VISIBLE);if(noScreenMode())setEnabledDeep(sections[1],false);}
   detailButton.setVisibility(activeSection==1&&!noScreenMode()?View.VISIBLE:View.GONE);
@@ -268,7 +268,7 @@ public class MainActivity extends Activity {
   Spinner source=settingsPicker(panel,"导入方式",new String[]{"文件管理","相册"},importSource);
   Spinner location=settingsPicker(panel,"导出位置",PhotoExport.LOCATIONS,PhotoExport.locationIndex(exportLocation));
   Spinner format=settingsPicker(panel,"导出画质",PhotoExport.FORMATS,exportFormat);
-  panel.addView(label("默认直接保存至相册的「器材片」相簿，无需选择位置。选择原照片文件夹时，首次可能需要授权。",12,MUTED));
+  panel.addView(label("支持 AVIF 导入（Android 12 及以上）。相册未显示 AVIF 时可使用文件管理。\n默认直接保存至相册的「器材片」相簿，无需选择位置。选择原照片文件夹时，首次可能需要授权。",12,MUTED));
   ScrollView scroll=new ScrollView(this);scroll.addView(panel);
   importSourceDialog=new AlertDialog.Builder(this).setTitle("导入与导出").setView(scroll).setPositiveButton("保存",(dialog,which)->{
    importSource=source.getSelectedItemPosition();exportLocation=PhotoExport.locationAt(location.getSelectedItemPosition());exportFormat=format.getSelectedItemPosition();
@@ -297,8 +297,7 @@ public class MainActivity extends Activity {
  }
  private Bitmap decode(Uri uri,int edge)throws IOException{return decode(uri,edge,null);}
  private Bitmap decode(Uri uri,int edge,int[] originalSize)throws IOException{
-  ImageDecoder.Source source=ImageDecoder.createSource(getContentResolver(),uri);
-  return ImageDecoder.decodeBitmap(source,(decoder,info,src)->{int w=info.getSize().getWidth(),h=info.getSize().getHeight();if(originalSize!=null){originalSize[0]=w;originalSize[1]=h;}double scale=Math.min(1,(double)edge/Math.max(w,h));decoder.setTargetSize(Math.max(1,(int)(w*scale)),Math.max(1,(int)(h*scale)));decoder.setAllocator(ImageDecoder.ALLOCATOR_SOFTWARE);decoder.setTargetColorSpace(ColorSpace.get(ColorSpace.Named.SRGB));});
+  return PhotoDecoder.decode(getContentResolver(),uri,edge,originalSize);
  }
  private void load(Uri uri,boolean restoring){
   busy=true;status.setText("正在读取照片与 EXIF…");refresh();
@@ -312,7 +311,7 @@ public class MainActivity extends Activity {
     updating=true;cameraName.setText(options.camera);lensName.setText(options.lens);updating=false;details.setText(scannerMode()?meta.scanDescription():meta.focal+"     "+meta.shutter+"\n"+meta.aperture+"     "+meta.iso);if(scannerMode())options.showParameters=false;
     status.setText(matched!=null?(matched.genericArtwork?"已识别扫描流程 · 硬件型号未记录（通用示意）":"已自动匹配  ·  "+matched.name):meta.unmatchedReason());status.setTextColor(matched==null?(dark?0xffefbb8a:0xffa56839):(dark?0xff9ec9b1:GREEN));importButton.setText("＋  更换照片");busy=false;refresh();
    });
-  }catch(Exception|OutOfMemoryError e){if(newPhoto!=null)newPhoto.recycle();if(newBody!=null)newBody.recycle();main.post(()->{if(isDestroyed())return;busy=false;status.setText("导入失败，已保留原作品");refresh();error("无法导入", "请使用可正常解码的 JPG、PNG、WebP 或 HEIF 原图。RAW 请先导出为保留 EXIF 的 JPG。\n"+e.getMessage());});}});
+  }catch(Exception|OutOfMemoryError e){if(newPhoto!=null)newPhoto.recycle();if(newBody!=null)newBody.recycle();main.post(()->{if(isDestroyed())return;busy=false;status.setText("导入失败，已保留原作品");refresh();error("无法导入", "请使用可正常解码的 JPG、PNG、WebP、HEIF 或 AVIF 原图。RAW 请先导出为保留 EXIF 的 JPG。\n"+e.getMessage());});}});
  }
  private void chooseExport(){
   if(model==null||busy)return;

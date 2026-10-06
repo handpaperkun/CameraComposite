@@ -4,6 +4,25 @@ import android.graphics.*;
 
 /** Local edge matting: preserve interior lettering and decontaminate background-colored fringes. */
 final class EdgeMatte {
+ /** Extend interior colour to the reviewed contour without eroding pale hardware.
+  * Coverage comes from the antialiased path, not a brightness threshold.
+  */
+ static void decontaminateContour(Bitmap bitmap){
+  int w=bitmap.getWidth(),h=bitmap.getHeight();int[] p=new int[w*h];bitmap.getPixels(p,0,w,0,0,w,h);byte[] depth=new byte[p.length];
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++){int i=y*w+x;depth[i]=(byte)(Color.alpha(p[i])==0?0:(x==0||y==0||x==w-1||y==h-1?1:5));}
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++){int i=y*w+x,d=depth[i];if(x>0)d=Math.min(d,depth[i-1]+1);if(y>0)d=Math.min(d,depth[i-w]+1);depth[i]=(byte)d;}
+  for(int y=h-1;y>=0;y--)for(int x=w-1;x>=0;x--){int i=y*w+x,d=depth[i];if(x+1<w)d=Math.min(d,depth[i+1]+1);if(y+1<h)d=Math.min(d,depth[i+w]+1);depth[i]=(byte)d;}
+  int[] out=p.clone();
+  for(int y=0;y<h;y++)for(int x=0;x<w;x++){
+   int i=y*w+x;if(depth[i]==0||depth[i]>2)continue;int nearest=-1,best=99;
+   for(int yy=Math.max(0,y-4);yy<=Math.min(h-1,y+4);yy++)for(int xx=Math.max(0,x-4);xx<=Math.min(w-1,x+4);xx++){
+    int at=yy*w+xx,dist=(xx-x)*(xx-x)+(yy-y)*(yy-y);if(depth[at]>=3&&Color.alpha(p[at])==255&&dist<best){nearest=at;best=dist;}
+   }
+   if(nearest<0)continue;float spill=luma(p[i])-luma(p[nearest]);if(spill<8)continue;
+   float t=depth[i]==1?1f:.65f;out[i]=Color.argb(Color.alpha(p[i]),mix(Color.red(p[i]),Color.red(p[nearest]),t),mix(Color.green(p[i]),Color.green(p[nearest]),t),mix(Color.blue(p[i]),Color.blue(p[nearest]),t));
+  }
+  bitmap.setPixels(out,0,w,0,0,w,h);
+ }
  /** A reviewed exterior contour for white hardware on a white studio background. */
  static void retainOutline(Bitmap bitmap,float[] points,int left,int top){
   if(points.length<6)return;Path outside=new Path();outside.setFillType(Path.FillType.EVEN_ODD);outside.addRect(0,0,bitmap.getWidth(),bitmap.getHeight(),Path.Direction.CW);

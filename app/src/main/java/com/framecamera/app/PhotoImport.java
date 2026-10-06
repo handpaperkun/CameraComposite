@@ -15,7 +15,8 @@ final class PhotoImport {
    return i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
   }
   return new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
-   .setType("image/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+   .setType("*/*").putExtra(Intent.EXTRA_MIME_TYPES,new String[]{"image/*","image/avif","application/octet-stream"})
+   .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
  }
  static Intent fallbackAlbum(){
   return Intent.createChooser(new Intent(Intent.ACTION_GET_CONTENT).addCategory(Intent.CATEGORY_OPENABLE)
