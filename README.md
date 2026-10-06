@@ -2,7 +2,7 @@
 
 [下载最新 APK](https://github.com/handpaperkun/CameraComposite/releases/latest) · [版本记录](https://github.com/handpaperkun/CameraComposite/releases)
 
-原生 Android 照片拼接 APP，适用于 Android 9 及以上。当前版本 0.8.3 为可安装的功能验证版，主流机型均已进行适配
+原生 Android 照片拼接 APP，适用于 Android 9 及以上。
 
 首次克隆请参阅[仓库与构建说明](docs/repository.md)。相机素材来源及未核实的分发授权状态见[第三方说明](THIRD_PARTY_NOTICES.md)；仓库公开不等于全部内容获得开源许可。安装包、签名密钥和测试照片不进入 Git 历史。
 
